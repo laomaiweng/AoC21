@@ -3,5 +3,5 @@
 version = 3
 
 [[package]]
-name = "sonar_sweep1"
+name = "sonar_sweep"
 version = "0.1.0"
