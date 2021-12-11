@@ -7,3 +7,6 @@ edition = "2021"
 
 [dependencies]
 grid = "0.6"
+
+[features]
+norecurse = []
