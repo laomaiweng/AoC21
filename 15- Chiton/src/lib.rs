@@ -41,6 +41,7 @@ impl Map {
     pub fn rows(&self) -> usize { self.0.rows() }
     pub fn cols(&self) -> usize { self.0.cols() }
 
+    #[cfg(not(feature = "pathfinding"))]
     pub fn solve(&mut self) {
         let (n,m) = self.0.size();
 
@@ -96,6 +97,35 @@ impl Map {
 
         #[cfg(feature = "bitmap")]
         self.save_as_bitmap("state/final.bmp", self.0[n-1][m-1].distance.unwrap());
+    }
+
+    #[cfg(feature = "pathfinding")]
+    fn successors(&self, coords: Coords) -> Vec<(Coords, u32)> {
+        let (n,m) = self.0.size();
+        let (i,j) = coords;
+
+        let mut successors = Vec::new();
+        if i > 0 {
+            successors.push(((i-1,j), self.0[i-1][j].risk));
+        }
+        if i < n-1 {
+            successors.push(((i+1,j), self.0[i+1][j].risk));
+        }
+        if j > 0 {
+            successors.push(((i,j-1), self.0[i][j-1].risk));
+        }
+        if j < m-1 {
+            successors.push(((i,j+1), self.0[i][j+1].risk));
+        }
+        successors
+    }
+
+    #[cfg(feature = "pathfinding")]
+    pub fn solve(&mut self) {
+        use pathfinding::prelude::dijkstra;
+        let (n,m) = self.0.size();
+        let result = dijkstra(&(0,0), |c| self.successors(*c), |c| *c == (n-1, m-1));
+        println!("Found lowest risk path: {}", result.expect("No lowest risk path found!").1);
     }
 
     fn compute_neighbor(&mut self, from: Coords, distance: u32, to: Coords) {
