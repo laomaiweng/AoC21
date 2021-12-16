@@ -1,4 +1,6 @@
-use std::cmp::Reverse;
+#[cfg(feature = "minheap")]
+use std::collections::BinaryHeap;
+use std::cmp::{Ordering, Reverse};
 use std::io::{self, BufRead};
 
 use grid;
@@ -7,6 +9,31 @@ use itertools;
 use rustbitmap::{BitMap, Rgba};
 
 type Coords = (usize, usize);
+
+struct Candidate {
+    coords: Coords,
+    risk: u32,
+}
+
+impl PartialEq for Candidate {
+    fn eq(&self, other: &Self) -> bool {
+        self.risk == other.risk
+    }
+}
+
+impl Eq for Candidate {}
+
+impl PartialOrd for Candidate {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for Candidate {
+    fn cmp(&self, other: &Self) -> Ordering {
+        other.risk.cmp(&self.risk)
+    }
+}
 
 #[derive(Default, Clone, Copy)]
 struct Cell {
@@ -41,7 +68,7 @@ impl Map {
     pub fn rows(&self) -> usize { self.0.rows() }
     pub fn cols(&self) -> usize { self.0.cols() }
 
-    #[cfg(not(feature = "pathfinding"))]
+    #[cfg(not(any(feature = "pathfinding", feature = "minheap")))]
     pub fn solve(&mut self) {
         let (n,m) = self.0.size();
 
@@ -99,6 +126,71 @@ impl Map {
         self.save_as_bitmap("state/final.bmp", self.0[n-1][m-1].distance.unwrap());
     }
 
+    #[cfg(feature = "minheap")]
+    pub fn solve(&mut self) {
+        let (n,m) = self.0.size();
+
+        // Dijkstra 1: mark all nodes unvisited, create a set of all unvisited nodes
+        let mut unvisited = BinaryHeap::new();
+        unvisited.push(Candidate {
+            coords: (0, 0),
+            risk: 0,
+        });
+
+        // Dijkstra 2: assign to every node a tentative distance value (we assert it)
+        //             set it to 0 for our initial node
+        //             set the initial node as current
+        //             remove the initial node from the unvisited set (it is the last one by construction)
+        assert!(self.0.iter().all(|c| c.distance.is_none()));
+        self.0[0][0].distance = Some(0);
+
+        let mut count: usize = 0;
+        // Dijkstra 6: select the unvisited node that is marked with the smallest tentative distance
+        // Dijkstra 4: mark the current node as visited and remove it from the unvisited set
+        while let Some(Candidate { coords, risk }) = unvisited.pop() {
+            let (i,j) = coords;
+            // Dijkstra 5: the algorithm can stop once the destination node could be selected as the
+            //             next "current"
+            if i == n-1 && j == m-1 {
+                break;
+            }
+            if count % 100 == 0 {
+                #[cfg(feature = "verbose")]
+                println!("Reached node ({},{}).", i, j);
+
+                #[cfg(feature = "bitmap")]
+                self.save_as_bitmap(&format!("state/{}.bmp", count/100), risk);
+            }
+            count += 1;
+
+            // Dijkstra 3: for the current node, consider all its unvisited neighbors and calculate
+            //             their tentative distances through the current node
+            if i > 0 {
+                if let Some(new_distance) = self.compute_neighbor(coords, risk, (i-1,j)) {
+                    unvisited.push(Candidate { coords: (i-1,j), risk: new_distance });
+                }
+            }
+            if i < n-1 {
+                if let Some(new_distance) = self.compute_neighbor(coords, risk, (i+1,j)) {
+                    unvisited.push(Candidate { coords: (i+1,j), risk: new_distance });
+                }
+            }
+            if j > 0 {
+                if let Some(new_distance) = self.compute_neighbor(coords, risk, (i,j-1)) {
+                    unvisited.push(Candidate { coords: (i,j-1), risk: new_distance });
+                }
+            }
+            if j < m-1 {
+                if let Some(new_distance) = self.compute_neighbor(coords, risk, (i,j+1)) {
+                    unvisited.push(Candidate { coords: (i,j+1), risk: new_distance });
+                }
+            }
+        }
+
+        #[cfg(feature = "bitmap")]
+        self.save_as_bitmap("state/final.bmp", self.0[n-1][m-1].distance.unwrap());
+    }
+
     #[cfg(feature = "pathfinding")]
     fn successors(&self, coords: Coords) -> Vec<(Coords, u32)> {
         let (n,m) = self.0.size();
@@ -128,7 +220,7 @@ impl Map {
         println!("Found lowest risk path: {}", result.expect("No lowest risk path found!").1);
     }
 
-    fn compute_neighbor(&mut self, from: Coords, distance: u32, to: Coords) {
+    fn compute_neighbor(&mut self, from: Coords, distance: u32, to: Coords) -> Option<u32> {
         let cell = &mut self.0[to.0][to.1];
         let distance = distance + cell.risk;
         if distance < cell.distance.unwrap_or(u32::MAX) {
@@ -137,6 +229,9 @@ impl Map {
             if to.0 == self.0.rows() - 1 && to.1 == self.0.cols() - 1 {
                 println!("Found new minimum path to destination with risk {}.", distance);
             }
+            Some(distance)
+        } else {
+            None
         }
     }
 
