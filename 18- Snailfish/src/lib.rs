@@ -44,7 +44,7 @@ pub fn add(left: Index, right: Index, arena: &mut Arena) -> Index {
 }
 
 pub fn explode(root: Index, arena: &mut Arena) -> bool {
-    let mut exploded = false;
+    let mut exploded = None;
     let mut left_number_index = None;
     let mut right_number_value = None;
 
@@ -66,9 +66,11 @@ pub fn explode(root: Index, arena: &mut Arena) -> bool {
                 // Check for explosions.
                 let left = arena.get(ileft).unwrap().borrow();
                 let right = arena.get(iright).unwrap().borrow();
-                if !exploded && depth >= 4 && left.is_leaf() && right.is_leaf() {
+                if exploded.is_none() && depth >= 4 && left.is_leaf() && right.is_leaf() {
                     let lvalue = if let Node::Leaf(num) = *left { num } else { panic!("¿¿¿") };
                     let rvalue = if let Node::Leaf(num) = *right { num } else { panic!("???") };
+                    // Replace the current node.
+                    exploded = Some((ileft, iright));
                     *node = Node::Leaf(0);
                     // Propagate left value.
                     if let Some(previous) = left_number_index {
@@ -80,7 +82,6 @@ pub fn explode(root: Index, arena: &mut Arena) -> bool {
                     }
                     // Propagate right value.
                     right_number_value = Some(rvalue);
-                    exploded = true;
                 } else { // Otherwise queue the child nodes (left last since we're in a LIFO queue).
                     path.push((iright, depth+1));
                     path.push((ileft, depth+1));
@@ -89,7 +90,14 @@ pub fn explode(root: Index, arena: &mut Arena) -> bool {
         }
     }
 
-    exploded
+    if let Some((left, right)) = exploded {
+        // Drop the former children of the exploded node.
+        arena.remove(left);
+        arena.remove(right);
+        true
+    } else {
+        false
+    }
 }
 
 pub fn split(root: Index, arena: &mut Arena) -> bool {
