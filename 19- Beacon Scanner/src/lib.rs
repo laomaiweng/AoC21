@@ -1,5 +1,5 @@
 use std::cmp;
-use std::collections::BTreeSet;
+use std::collections::{BTreeSet, HashMap, HashSet};
 use std::io::{self, BufRead};
 
 use nalgebra::{matrix, Matrix3, Vector3};
@@ -99,6 +99,8 @@ fn rotations() -> Vec<Rotation> {
 pub struct Scanner {
     pub index: u32,
     beacons: BTreeSet<Coords>,
+    rotation: Rotation,
+    translation: Translation,
 }
 
 impl Scanner {
@@ -106,11 +108,17 @@ impl Scanner {
         Scanner {
             index,
             beacons: BTreeSet::new(),
+            rotation: Rotation::identity(),
+            translation: Translation::zeros(),
         }
     }
 
     pub fn count(&self) -> usize {
         self.beacons.len()
+    }
+
+    pub fn distance(&self, other: &Self) -> Translation {
+        other.translation - self.translation
     }
 
     pub fn collide(&self, other: &Scanner, threshold: usize) -> Option<(Rotation, Translation)> {
@@ -134,12 +142,58 @@ impl Scanner {
         None
     }
 
-    pub fn transform(&mut self, rotation: &Rotation, translation: &Translation) {
+    pub fn transform(&mut self, rotation: Rotation, translation: Translation) {
+        self.rotation = rotation;
+        self.translation = translation;
         self.beacons = self.beacons.iter().map(|b| Coords(rotation * b.0 + translation)).collect();
     }
 
     pub fn merge(&mut self, other: &Self) {
         self.beacons.extend(&other.beacons);
+    }
+}
+
+pub fn large_scanner_collider(scanners: &mut[Scanner]) {
+    // Create the sets of merged and unmerged scanners (by their indices into the array of scanners
+    // passed as argument). The set of merged scanners consists only of scanner 0 initially.
+    let mut merged = vec![0];
+    let mut unmerged: Vec<usize> = (1..scanners.len()).collect();
+
+    // Remember scanners that didn't match so we don't attempt to match them again.
+    let mut all_mismatches = HashMap::new();
+
+    // Iterate over unmerged scanners, trying to match them against any merged scanner.
+    // Once we find a match, transform it and move it to the list of merged scanners.
+    while !unmerged.is_empty() {
+        let mut collided = None;
+        'unmerged: for (i, scanner) in unmerged.iter().enumerate() {
+            let scanner = &scanners[*scanner];
+            let mismatches = all_mismatches.entry(scanner.index).or_insert(HashSet::new());
+            for candidate in &merged {
+                let candidate = &scanners[*candidate];
+                if mismatches.contains(&candidate.index) {
+                    continue;
+                }
+                if let Some((rotation, translation)) = candidate.collide(&scanner, 12) {
+                    println!("Collided scanners {} & {}!", candidate.index, scanner.index);
+                    // Remember the index into the unmerged set so we can move it outside of the
+                    // loops (and their borrows).
+                    collided = Some((i, rotation, translation));
+                    break 'unmerged;
+                } else {
+                    mismatches.insert(candidate.index);
+                }
+            }
+        }
+        if let Some((i, rotation, translation)) = collided {
+            // A scanner matched: transform it and move it.
+            let index = unmerged.swap_remove(i);
+            let scanner = &mut scanners[index];
+            scanner.transform(rotation, translation);
+            merged.push(index);
+        } else {
+            panic!("Failed to collide any remaining unmerged scanners!");
+        }
     }
 }
 
@@ -256,7 +310,7 @@ mod tests {
             -8,-7,0
         "#);
         let (rotation, translation) = scanner0.collide(&scanner1, scanner0.beacons.len()).expect("No matching transform found!");
-        scanner1.transform(&rotation, &translation);
+        scanner1.transform(rotation, translation);
         assert_eq!(scanner0.beacons, scanner1.beacons);
     }
 
@@ -319,7 +373,7 @@ mod tests {
         "#);
         let (rotation1, translation1) = scanner0.collide(&scanner1, 12).expect("No matching transform found!");
         assert_eq!(translation1, vector![68, -1246, -43]);
-        scanner1.transform(&rotation1, &translation1);
+        scanner1.transform(rotation1, translation1);
         let overlap1: BTreeSet<_> = scanner0.beacons.intersection(&scanner1.beacons).copied().collect();
         let expected1 = parse_scanner(r#"
             -618,-824,-621
@@ -367,7 +421,7 @@ mod tests {
         "#);
         let (rotation4, translation4) = scanner1.collide(&scanner4, 12).expect("No matching transform found!");
         assert_eq!(translation4, vector![-20, -1133, 1061]);
-        scanner4.transform(&rotation4, &translation4);
+        scanner4.transform(rotation4, translation4);
         let overlap4: BTreeSet<_> = scanner1.beacons.intersection(&scanner4.beacons).copied().collect();
         let expected4 = parse_scanner(r#"
             459,-707,401
