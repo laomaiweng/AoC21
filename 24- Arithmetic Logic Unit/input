@@ -1,0 +1,295 @@
+round0:
+inp w
+mul x 0
+add x z
+mod x 26
+div z 1
+add x 12
+round0_x:
+eql x w
+eql x 0
+mul y 0
+add y 25
+mul y x
+add y 1
+mul z y
+mul y 0
+add y w
+add y 4
+mul y x
+add z y
+
+round1:
+inp w
+mul x 0
+add x z
+mod x 26
+div z 1
+add x 15
+round1_x:
+eql x w
+eql x 0
+mul y 0
+add y 25
+mul y x
+add y 1
+mul z y
+mul y 0
+add y w
+add y 11
+mul y x
+add z y
+
+round2:
+inp w
+mul x 0
+add x z
+mod x 26
+div z 1
+add x 11
+round2_x:
+eql x w
+eql x 0
+mul y 0
+add y 25
+mul y x
+add y 1
+mul z y
+mul y 0
+add y w
+add y 7
+mul y x
+add z y
+
+round3:
+inp w
+mul x 0
+add x z
+mod x 26
+div z 26
+add x -14
+round3_x:
+eql x w     # x & w must match
+eql x 0
+mul y 0
+add y 25
+mul y x
+add y 1
+mul z y
+mul y 0
+add y w
+add y 2
+mul y x
+add z y
+
+round4:
+inp w
+mul x 0
+add x z
+mod x 26
+div z 1
+add x 12
+round4_x:
+eql x w
+eql x 0
+mul y 0
+add y 25
+mul y x
+add y 1
+mul z y
+mul y 0
+add y w
+add y 11
+mul y x
+add z y
+
+round5:
+inp w
+mul x 0
+add x z
+mod x 26
+div z 26
+add x -10
+round5_x:
+eql x w     # x & w must match
+eql x 0
+mul y 0
+add y 25
+mul y x
+add y 1
+mul z y
+mul y 0
+add y w
+add y 13
+mul y x
+add z y
+
+round6:
+inp w
+mul x 0
+add x z
+mod x 26
+div z 1
+add x 11
+round6_x:
+eql x w
+eql x 0
+mul y 0
+add y 25
+mul y x
+add y 1
+mul z y
+mul y 0
+add y w
+add y 9
+mul y x
+add z y
+
+round7:
+inp w
+mul x 0
+add x z
+mod x 26
+div z 1
+add x 13
+round7_x:
+eql x w
+eql x 0
+mul y 0
+add y 25
+mul y x
+add y 1
+mul z y
+mul y 0
+add y w
+add y 12
+mul y x
+add z y
+
+round8:
+inp w
+mul x 0
+add x z
+mod x 26
+div z 26
+add x -7
+round8_x:
+eql x w     # x & w must match
+eql x 0
+mul y 0
+add y 25
+mul y x
+add y 1
+mul z y
+mul y 0
+add y w
+add y 6
+mul y x
+add z y
+
+round9:
+inp w
+mul x 0
+add x z
+mod x 26
+div z 1
+add x 10
+round9_x:
+eql x w
+eql x 0
+mul y 0
+add y 25
+mul y x
+add y 1
+mul z y
+mul y 0
+add y w
+add y 2
+mul y x
+add z y
+
+round10:
+inp w
+mul x 0
+add x z
+mod x 26
+div z 26
+add x -2
+round10_x:
+eql x w     # x & w must match
+eql x 0
+mul y 0
+add y 25
+mul y x
+add y 1
+mul z y
+mul y 0
+add y w
+add y 11
+mul y x
+add z y
+
+round11:
+inp w
+mul x 0
+add x z
+mod x 26
+div z 26
+add x -1
+round11_x:
+eql x w     # x & w must match
+eql x 0
+mul y 0
+add y 25
+mul y x
+add y 1
+mul z y
+mul y 0
+add y w
+add y 12
+mul y x
+add z y
+
+round12:
+inp w
+mul x 0
+add x z
+mod x 26
+div z 26
+add x -4
+round12_x:
+eql x w     # x & w must match
+eql x 0
+mul y 0
+add y 25
+mul y x
+add y 1
+mul z y
+mul y 0
+add y w
+add y 3
+mul y x
+add z y
+
+round13:
+inp w
+mul x 0
+add x z
+mod x 26
+div z 26
+add x -12
+round13_x:
+eql x w     # x & w must match
+eql x 0
+mul y 0
+add y 25
+mul y x
+add y 1
+mul z y
+mul y 0
+add y w
+add y 13
+mul y x
+add z y
+
+end:
