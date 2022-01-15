@@ -1,5 +1,7 @@
 #[cfg(feature = "minheap")]
 use std::collections::BinaryHeap;
+#[cfg(feature = "bitmap")]
+use std::collections::HashSet;
 use std::cmp::{Ordering, Reverse};
 use std::io::{self, BufRead};
 
@@ -7,6 +9,8 @@ use grid;
 use itertools;
 #[cfg(feature = "bitmap")]
 use rustbitmap::{BitMap, Rgba};
+
+const FREQUENCY: usize = 30;
 
 type Coords = (usize, usize);
 
@@ -91,12 +95,12 @@ impl Map {
         while current != (n-1,m-1) {
             let (i,j) = current;
             let distance = self.0[i][j].distance.unwrap();
-            if count % 100 == 0 {
+            if count % FREQUENCY == 0 {
                 #[cfg(feature = "verbose")]
                 println!("Reached node ({},{}).", i, j);
 
                 #[cfg(feature = "bitmap")]
-                self.save_as_bitmap(&format!("state/{}.bmp", count/100), distance);
+                self.save_as_bitmap(&format!("state/{}.bmp", count/FREQUENCY), distance);
             }
             count += 1;
 
@@ -123,7 +127,7 @@ impl Map {
         }
 
         #[cfg(feature = "bitmap")]
-        self.save_as_bitmap("state/final.bmp", self.0[n-1][m-1].distance.unwrap());
+        self.save_as_bitmap(&format!("state/{}.bmp", (count+FREQUENCY-1)/FREQUENCY), self.0[n-1][m-1].distance.unwrap());
     }
 
     #[cfg(feature = "minheap")]
@@ -154,12 +158,12 @@ impl Map {
             if i == n-1 && j == m-1 {
                 break;
             }
-            if count % 100 == 0 {
+            if count % FREQUENCY == 0 {
                 #[cfg(feature = "verbose")]
                 println!("Reached node ({},{}).", i, j);
 
                 #[cfg(feature = "bitmap")]
-                self.save_as_bitmap(&format!("state/{}.bmp", count/100), risk);
+                self.save_as_bitmap(&format!("state/{}.bmp", count/FREQUENCY), risk);
             }
             count += 1;
 
@@ -188,7 +192,7 @@ impl Map {
         }
 
         #[cfg(feature = "bitmap")]
-        self.save_as_bitmap("state/final.bmp", self.0[n-1][m-1].distance.unwrap());
+        self.save_as_bitmap(&format!("state/{}.bmp", (count+FREQUENCY-1)/FREQUENCY), self.0[n-1][m-1].distance.unwrap());
     }
 
     #[cfg(feature = "pathfinding")]
@@ -237,17 +241,42 @@ impl Map {
 
     #[cfg(feature = "bitmap")]
     fn save_as_bitmap(&self, name: &str, max_distance: u32) {
-        let pixels = self.0.iter().map(|c| {
-            if let Some(distance) = c.distance {
-                if distance == max_distance {
-                    Rgba::white()
-                } else {
-                    Rgba::rgb(((1. - (distance as f32 / max_distance as f32)) * (u8::MAX as f32)) as u8, 0, 0)
-                }
-            } else {
-                Rgba::black()
+        // Compute all cells that are in a path to a max-distance cell.
+        //  First gather all max-distance cell coordinates.
+        let destinations: Vec<_> = (0..self.0.rows()).map(|row|
+            self.0.iter_row(row).enumerate().filter_map(|(col, cell)|
+                (cell.distance.unwrap_or(u32::MAX) == max_distance)
+                    .then(|| (row, col))
+            ).collect::<Vec<_>>()
+        ).flatten().collect();
+        //  Then walk up the paths to those cells.
+        let paths: HashSet<Coords> = destinations.iter().map(|(row, col)| {
+            let mut path = Vec::with_capacity(row + col);
+            let mut maybe_prev = self.0[*row][*col].previous;
+            while let Some(prev) = maybe_prev {
+                path.push(prev);
+                maybe_prev = self.0[prev.0][prev.1].previous;
             }
-        }).collect();
+            path
+        }).flatten().collect();
+
+        // Gather cells into pixels, assigning a color to each.
+        let pixels = (0..self.0.rows()).map(|row|
+            self.0.iter_row(row).enumerate().map(|(col, cell)| {
+                if let Some(distance) = cell.distance {
+                    if distance == max_distance {
+                        Rgba::white()
+                    } else if paths.contains(&(row, col)) {
+                        Rgba::rgb(u8::MAX, u8::MAX, 0) // yellow
+                    } else {
+                        let ratio = distance as f32 / max_distance as f32;
+                        Rgba::rgb((ratio * (u8::MAX as f32)) as u8, 0, ((1. - ratio) * (u8::MAX as f32)) as u8)
+                    }
+                } else {
+                    Rgba::black()
+                }
+            }).collect::<Vec<_>>()
+        ).flatten().collect();
         let bitmap = BitMap::create(self.0.rows() as u32, self.0.cols() as u32, pixels).unwrap();
         bitmap.save_as(name).expect("Failed to save bitmap!");
     }
